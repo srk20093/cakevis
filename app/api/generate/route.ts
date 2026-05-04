@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { replicate } from '@/lib/replicate';
 
+export const maxDuration = 60;
+
 export interface CakeOptions {
   occasion: string;
   tiers: string;
@@ -23,6 +25,15 @@ function buildPrompt(options: CakeOptions): string {
   return parts.filter(Boolean).join(', ');
 }
 
+function extractUrl(output: unknown): string {
+  if (typeof output === 'string') return output;
+  if (output && typeof (output as { url?: () => string }).url === 'function') {
+    return (output as { url: () => string }).url();
+  }
+  if (Array.isArray(output) && output.length > 0) return extractUrl(output[0]);
+  return String(output);
+}
+
 export async function POST(req: NextRequest) {
   try {
     const options: CakeOptions = await req.json();
@@ -35,9 +46,10 @@ export async function POST(req: NextRequest) {
     }
 
     const prompt = buildPrompt(options);
+    const imageUrls: string[] = [];
 
-    const imagePromises = Array.from({ length: 3 }, () =>
-      replicate.run('black-forest-labs/flux-1.1-pro', {
+    for (let i = 0; i < 3; i++) {
+      const output = await replicate.run('black-forest-labs/flux-1.1-pro', {
         input: {
           prompt,
           width: 1024,
@@ -45,18 +57,14 @@ export async function POST(req: NextRequest) {
           output_format: 'webp',
           output_quality: 90,
         },
-      })
-    );
-
-    const results = await Promise.all(imagePromises);
-    const imageUrls = results.map((r) => (Array.isArray(r) ? r[0] : r));
+      });
+      imageUrls.push(extractUrl(output));
+    }
 
     return NextResponse.json({ images: imageUrls, prompt });
   } catch (error) {
     console.error('Generate error:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate images' },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Failed to generate images';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

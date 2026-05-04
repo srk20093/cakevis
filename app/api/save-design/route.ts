@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
   try {
     const { options, imageUrls, selectedImage, prompt } = await req.json();
 
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('cake_designs')
       .insert([
         {

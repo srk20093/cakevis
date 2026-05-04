@@ -46,20 +46,17 @@ export async function POST(req: NextRequest) {
     }
 
     const prompt = buildPrompt(options);
-    const imageUrls: string[] = [];
+    const output = await replicate.run('black-forest-labs/flux-1.1-pro', {
+      input: {
+        prompt,
+        width: 1024,
+        height: 1024,
+        output_format: 'webp',
+        output_quality: 90,
+      },
+    });
 
-    for (let i = 0; i < 3; i++) {
-      const output = await replicate.run('black-forest-labs/flux-1.1-pro', {
-        input: {
-          prompt,
-          width: 1024,
-          height: 1024,
-          output_format: 'webp',
-          output_quality: 90,
-        },
-      });
-      imageUrls.push(extractUrl(output));
-    }
+    const imageUrls = [extractUrl(output)];
 
     return NextResponse.json({ images: imageUrls, prompt });
   } catch (error) {
